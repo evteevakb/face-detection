@@ -1,0 +1,76 @@
+version: "3.7"
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2023-02-27T18-10-45Z
+    container_name: minio
+    command: server --console-address ":9001" minio-data
+    env_file:
+      - .minio.env
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    hostname: minio
+    volumes:
+      - minio-data:/data
+
+  minio-mc:
+    image: minio/mc:RELEASE.2023-02-28T00-12-59Z
+    container_name: minio-mc
+    depends_on:
+      - minio
+    env_file:
+      - .minio.env
+    volumes:
+      - ./create_bucket.sh:/create_bucket.sh
+    entrypoint: "bash /create_bucket.sh"
+
+  mongo:
+    image: mongo:6.0.4
+    container_name: mongo
+    env_file:
+      - .mongo.env
+    ports:
+      - "27017:27017"
+    volumes:
+      -  mongo-data:/data/db/
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+    restart: on-failure:5
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    depends_on:
+      - mongo 
+    env_file:
+      - .mongo.env
+    ports:
+      - "20005:8081"
+    restart: always
+
+  webserver:
+    build:
+      context: ./face_detection/
+      dockerfile: Dockerfile
+    restart: on-failure:5
+    container_name: face_detection
+    command: uvicorn app:app --host 0.0.0.0
+    env_file:
+      - .mongo.env
+      - .minio.env
+      - .faceplusplus.env
+    ports:
+      - "8000:8000"
+    depends_on: 
+      - mongo
+      - minio
+      - minio-mc
+
+volumes:
+  minio-data:
+  mongo-data:
