@@ -61,7 +61,7 @@ services:
     env_file:
       - ./docker/.mongo.template.env
       - ./docker/.minio.template.env
-      - ./docker/.face++.template.env
+      - ./docker/.fpp.template.env
     ports:
       - "8000:8000"
     depends_on: 
